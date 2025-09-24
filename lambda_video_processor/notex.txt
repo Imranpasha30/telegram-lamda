@@ -1,0 +1,28 @@
+# Clear package directory first
+Remove-Item -Recurse -Force package -ErrorAction SilentlyContinue
+mkdir package
+
+# Install dependencies with correct names
+pip install psycopg2-binary==2.9.10 --platform manylinux2014_x86_64 --only-binary=:all: --target ./package
+pip install boto3==1.40.34 --target ./package
+pip install api.video==1.4.7 --target ./package
+
+# Verify installation
+Get-ChildItem package | Select-Object Name
+
+
+
+# Create ZIP with all dependencies
+cd package
+Compress-Archive -Path * -DestinationPath ..\lambda-video-processor.zip -Force
+
+# Add your lambda function code
+cd ..
+Compress-Archive -Path lambda_function.py -DestinationPath lambda-video-processor.zip -Update
+
+# Check ZIP size
+Get-ChildItem lambda-video-processor.zip | Format-Table Name, @{Name="Size (MB)"; Expression={[math]::Round($_.Length/1MB, 2)}}
+
+# Deactivate virtual environment
+deactivate
+

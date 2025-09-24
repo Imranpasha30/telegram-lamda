@@ -1,0 +1,49 @@
+Function 1 (telegram-webhook-handler):
+Policy Name: LambdaInvokePolicy
+
+Attached to: telegram-webhook-handler role
+
+Purpose: Allow Function 1 to trigger Function 2
+
+
+
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "lambda:InvokeFunction"
+            ],
+            "Resource": [
+                "arn:aws:lambda:ap-south-1:732406385450:function:lambda-video-processor",
+                "arn:aws:lambda:ap-south-1:732406385450:function:lambda-response-handler"
+            ]
+        }
+    ]
+}
+
+
+
+Function 2 (lambda-video-processor):
+Policy Name: LambdaInvokePolicy
+
+Attached to: lambda-video-processor role
+
+Purpose: Allow Function 2 to trigger Function 3
+
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "lambda:InvokeFunction"
+            ],
+            "Resource": [
+                "arn:aws:lambda:ap-south-1:732406385450:function:lambda-response-handler"
+            ]
+        }
+    ]
+}
+

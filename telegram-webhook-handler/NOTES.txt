@@ -1,0 +1,8 @@
+# Install psycopg2 for Linux
+pip install psycopg2-binary==2.9.10 --platform manylinux2014_x86_64 --only-binary=:all: --target ./package
+
+# Install boto3 normally (works cross-platform)  
+pip install boto3==1.40.34 --target ./package
+
+# Install requests for Telegram API calls
+pip install requests==2.31.0 --target ./package

@@ -1,0 +1,21 @@
+# Create package directory
+mkdir package
+
+# Install Linux-compatible dependencies
+pip install psycopg2-binary==2.9.10 --platform manylinux2014_x86_64 --only-binary=:all: --target ./package
+pip install requests==2.31.0 --target ./package
+
+# Verify installation
+Get-ChildItem package | Select-Object Name
+# Create ZIP with dependencies
+cd package
+Compress-Archive -Path * -DestinationPath ..\lambda-response-handler.zip -Force
+
+# Add lambda function
+cd ..
+Compress-Archive -Path lambda_function.py -DestinationPath lambda-response-handler.zip -Update
+
+# Check ZIP size
+Get-ChildItem lambda-response-handler.zip | Format-Table Name, @{Name="Size (MB)"; Expression={[math]::Round($_.Length/1MB, 2)}}
+
+deactivate
