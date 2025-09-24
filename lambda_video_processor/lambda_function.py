@@ -35,7 +35,7 @@ def lambda_handler(event, context):
         submission_id = event['submission_id']
         volunteer_id = event['volunteer_id']
         s3_key = event['s3_key']
-        video_title = event.get('video_title', f'Video from user {volunteer_id}')
+        video_title = event.get('video_title', f'News Video from {volunteer_id}')
         
         logger.info(f"Processing video: {submission_id} | S3: {s3_key}")
         
@@ -92,10 +92,10 @@ def process_video_submission(submission_id: str, volunteer_id: str, s3_key: str,
         temp_file_path = download_video_from_s3(s3_key)
         logger.info(f"✅ Video downloaded to temp file: {temp_file_path}")
         
-        # Step 4: Upload video to api.video
-        logger.info(f"☁️ Uploading video to api.video: {video_title}")
-        api_video_url = upload_to_api_video(temp_file_path, video_title)
-        logger.info(f"✅ Video uploaded to api.video: {api_video_url}")
+        # Step 4: Upload video to api.video as PUBLIC
+        logger.info(f"☁️ Uploading PUBLIC video to api.video: {video_title}")
+        api_video_url = upload_to_api_video_public(temp_file_path, video_title)
+        logger.info(f"✅ PUBLIC video uploaded to api.video: {api_video_url}")
         
         # Step 5: Update database with video URL
         logger.info(f"💾 Updating database with video URL")
@@ -109,14 +109,14 @@ def process_video_submission(submission_id: str, volunteer_id: str, s3_key: str,
         # Step 7: Trigger response handler (Function 3)
         logger.info(f"📤 Triggering response handler")
         trigger_response_handler(submission_id, volunteer_id, 'success', 
-                               'Your video has been processed and is now under review by our team!')
+                               'Your news video has been processed and is now under review by our team!')
         
         return {
             'submission_id': submission_id,
             'volunteer_id': volunteer_id,
             'api_video_url': api_video_url,
             'status': 'completed',
-            'message': 'Video successfully processed and uploaded to api.video'
+            'message': 'Video successfully processed and uploaded to api.video as public content'
         }
         
     except Exception as e:
@@ -192,64 +192,56 @@ def download_video_from_s3(s3_key: str) -> str:
             os.remove(temp_file_path)
         raise Exception(f"Failed to download from S3: {str(e)}")
 
-def upload_to_api_video(file_path: str, video_title: str) -> str:
-    """Upload video to api.video platform using HTTP API"""
-    api_video_key = os.environ.get('API_VIDEO_KEY')
+def upload_to_api_video_public(file_path: str, video_title: str) -> str:
+    """
+    Upload video to api.video as PUBLIC and return the simple embed URL:
+    https://embed.api.video/vod/{videoId}
+    No tokens needed - works forever!
+    """
+    api_video_key = os.environ.get("API_VIDEO_KEY")
     if not api_video_key:
         raise Exception("API_VIDEO_KEY environment variable not set")
-    
+
     try:
-        # Step 1: Create video container
+        # 1) Create video container as PUBLIC
         create_url = "https://ws.api.video/videos"
         headers = {
             "Authorization": f"Bearer {api_video_key}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
-        
         video_payload = {
             "title": video_title,
-            "description": f"Video submission processed at {datetime.utcnow().isoformat()}",
-            "public": False,
-            "tags": ["telegram-submission", "community-video"]
+            "description": f"News video submission processed at {datetime.utcnow().isoformat()}",
+            "public": True,  # ✅ MAKE IT PUBLIC - No tokens needed!
+            "tags": ["news-submission", "public-content", "community-video"],
         }
-        
-        logger.info(f"🎬 Creating video container: {video_title}")
+
+        logger.info(f"🎬 Creating PUBLIC video container: {video_title}")
         response = requests.post(create_url, json=video_payload, headers=headers, timeout=30)
         response.raise_for_status()
-        
         video_data = response.json()
-        video_id = video_data.get('videoId')
+        video_id = video_data.get("videoId")
         
         if not video_id:
             raise Exception(f"Failed to get videoId from response: {video_data}")
-        
-        logger.info(f"📹 Video container created: {video_id}")
-        
-        # Step 2: Upload video file
+        logger.info(f"📹 PUBLIC video container created: {video_id}")
+
+        # 2) Upload the file
         upload_url = f"https://ws.api.video/videos/{video_id}/source"
-        
-        logger.info(f"⬆️ Uploading video file...")
-        
-        with open(file_path, 'rb') as video_file:
-            files = {'file': video_file}
-            upload_headers = {
-                "Authorization": f"Bearer {api_video_key}"
-            }
-            
+        logger.info("⬆️ Uploading video file to api.video...")
+        with open(file_path, "rb") as video_file:
+            files = {"file": video_file}
+            upload_headers = {"Authorization": f"Bearer {api_video_key}"}
             upload_response = requests.post(upload_url, files=files, headers=upload_headers, timeout=300)
             upload_response.raise_for_status()
+        logger.info("✅ Upload complete")
+
+        # 3) Return simple PUBLIC embed URL (no tokens needed!)
+        public_embed_url = f"https://embed.api.video/vod/{video_id}"
         
-        upload_data = upload_response.json()
-        
-        # Get player URL
-        player_url = upload_data.get('assets', {}).get('player')
-        if not player_url:
-            # Fallback - construct player URL
-            player_url = f"https://embed.api.video/vod/{video_id}"
-        
-        logger.info(f"✅ Video uploaded successfully: {player_url}")
-        return player_url
-        
+        logger.info(f"✅ Returning PUBLIC embed URL: {public_embed_url}")
+        return public_embed_url
+
     except requests.exceptions.RequestException as e:
         logger.error(f"❌ HTTP error uploading to api.video: {str(e)}")
         raise Exception(f"api.video HTTP upload failed: {str(e)}")
